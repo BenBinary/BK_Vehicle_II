@@ -19,7 +19,8 @@ class ViewController: UIViewController, ARSCNViewDelegate {
     let configuration = ARWorldTrackingConfiguration()
     let motionManager = CMMotionManager()
     var vehicle = SCNPhysicsVehicle()
-
+    var orientation: CGFloat = 0.0
+    var touched: Bool = false
 
     
     
@@ -64,10 +65,11 @@ class ViewController: UIViewController, ARSCNViewDelegate {
         chassis!.position = currentPositionOfCamera
         let body = SCNPhysicsBody(type: .dynamic, shape: SCNPhysicsShape(node: chassis!, options: [SCNPhysicsShape.Option.keepAsCompound: true]))
         //car.physicsBody = body
+        body.mass = 1
         chassis?.physicsBody = body
         var wheels = [SCNPhysicsVehicleWheel]()
         
-        let v_frontLeftWheel = SCNPhysicsVehicleWheel(node: chassis!.childNode(withName: "rearLeftParent", recursively: false)!)
+        let v_frontLeftWheel = SCNPhysicsVehicleWheel(node: chassis!.childNode(withName: "frontLeftParent", recursively: false)!)
         let v_frontRightWheel = SCNPhysicsVehicleWheel(node: chassis!.childNode(withName: "frontRightParent", recursively: false)!)
         let v_rearLeftWheel = SCNPhysicsVehicleWheel(node: chassis!.childNode(withName: "rearLeftParent", recursively: false)!)
         let v_rearRightWheel = SCNPhysicsVehicleWheel(node: chassis!.childNode(withName: "rearRightParent", recursively: false)!)
@@ -124,7 +126,24 @@ class ViewController: UIViewController, ARSCNViewDelegate {
     
     func renderer(_ renderer: SCNSceneRenderer, didSimulatePhysicsAtTime time: TimeInterval) {
         
-        print("Simulationg Physics")
+        //print("Simulationg Physics")
+        
+        var engineForce: Float = 0
+        
+        self.vehicle.setSteeringAngle(orientation, forWheelAt: 2)
+        self.vehicle.setSteeringAngle(orientation, forWheelAt: 3)
+        
+        if self.touched == true {
+            engineForce = 5
+        } else {
+            engineForce = 0
+        }
+        
+        self.vehicle.applyEngineForce(CGFloat(engineForce), forWheelAt: 0)
+        self.vehicle.applyEngineForce(CGFloat(engineForce), forWheelAt: 1)
+        
+        
+        //speedInKilometersPerHour = CGFloat(engineForce)
         
     }
     
@@ -140,7 +159,6 @@ class ViewController: UIViewController, ARSCNViewDelegate {
         let staticBody = SCNPhysicsBody.static()
         concreteNode.physicsBody = staticBody
         
-        
         return concreteNode
         
     }
@@ -153,6 +171,7 @@ class ViewController: UIViewController, ARSCNViewDelegate {
         node.enumerateChildNodes { (childNode, _) in
             childNode.removeFromParentNode()
         }
+
         
     }
     
@@ -162,23 +181,15 @@ class ViewController: UIViewController, ARSCNViewDelegate {
         // Pause the view's session
         sceneView.session.pause()
     }
+    
+    override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
+        self.touched = true
+    }
+    
+    override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) {
+        self.touched = false
+    }
 
-
-    func session(_ session: ARSession, didFailWithError error: Error) {
-        // Present an error message to the user
-        
-    }
-    
-    func sessionWasInterrupted(_ session: ARSession) {
-        // Inform the user that the session has been interrupted, for example, by presenting an overlay
-        
-    }
-    
-    func sessionInterruptionEnded(_ session: ARSession) {
-        // Reset tracking and/or remove existing anchors if consistent tracking is required
-        
-    }
-    
     func setUpAccelerometer() {
         
         if motionManager.isAccelerometerAvailable {
@@ -201,9 +212,18 @@ class ViewController: UIViewController, ARSCNViewDelegate {
     
     func accelorometerDidChange(acceleration: CMAcceleration) {
         
+        
+        print("x: \(acceleration.x)")
+        
+        if acceleration.x < 0 {
+            self.orientation = -CGFloat(acceleration.y)
+        } else {
+            self.orientation = CGFloat(acceleration.y)
+        }
+        
+        // print("y: \(acceleration.y)")
     }
     
-
 }
 
 extension Int {
