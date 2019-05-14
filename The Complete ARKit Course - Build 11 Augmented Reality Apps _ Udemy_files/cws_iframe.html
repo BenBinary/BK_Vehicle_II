@@ -1,0 +1,108 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<!-- saved from url=(0039)https://cws.conviva.com/cws_iframe.html -->
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=windows-1252">
+<title> CWS Client iFrame </title>
+<script type="text/javascript">
+/* In normal operation this file is loaded in an iframe from the domain to
+   which our client wants to communicate. All the events received by the
+   cwsListener function will be with url on that domain.
+*/
+
+// AJAX support
+// @param method String (either POST or GET)
+// @param contentType String
+function httpRequest(url, method, contentType, data, timeoutMs, datacallback, errorcallback) {
+    //alert("httpRequest url="+url+" method="+method+" contentType="+contentType);
+    var xmlHttpReq = false;
+    if (window.XMLHttpRequest) {
+        // Mozilla/Safari
+        xmlHttpReq = new XMLHttpRequest();
+        if (contentType && xmlHttpReq.overrideMimeType) {
+            xmlHttpReq.overrideMimeType = contentType;
+        }
+    } else if (window.ActiveXObject) {
+        // IE
+        xmlHttpReq = new ActiveXObject("Microsoft.XMLHTTP");
+    }
+    xmlHttpReq.open(method, url, true);
+
+    if (contentType) {
+        xmlHttpReq.setRequestHeader('Content-Type',  contentType);
+    }
+    if (timeoutMs != null) {
+        xmlHttpReq.timeout = timeoutMs;
+        xmlHttpReq.ontimeout = function () {
+            // Often this callback will be called after onreadystatechange.
+            // The first callback called will cleanup the other to prevent duplicate responses.
+            xmlHttpReq.onreadystatechange = null;
+            xmlHttpReq.ontimeout = null;
+            if (errorcallback) errorcallback("timeout after "+timeoutMs+" ms");
+        };
+    }
+    // If the data contains \0  Firefox will truncate the data
+    // xmlHttpReq.setRequestHeader('Content-Length', data.length);
+    // The Connection header is refused by Chrome
+    //xmlHttpReq.setRequestHeader('Connection', 'close')
+    xmlHttpReq.onreadystatechange = function () {
+        if (xmlHttpReq.readyState != 4) return;
+        // This callback may be called after ontimeout.
+        // The first callback called will cleanup the other to prevent duplicate responses.
+        xmlHttpReq.onreadystatechange = null; // Break the GC cycle
+        xmlHttpReq.ontimeout = null;
+        if (xmlHttpReq.status == 200) {
+           if (datacallback) {
+                var bytes = xmlHttpReq.responseText;
+                datacallback(bytes);
+           }
+        } else {
+            if (errorcallback) errorcallback("http status "+xmlHttpReq.status);
+        }
+    }
+    xmlHttpReq.send(data);
+}
+
+function cwsListener(e) {
+    var url = e.data.url;
+    if (url === undefined) return; // Message is not from Conviva
+    var method = e.data.method;
+    var data = e.data.data;
+    var contentType = e.data.contentType;
+    var dataType;
+    if (contentType == "application/json") {
+       dataType = "json";
+    }
+    var convivaId = e.data.convivaId;
+    var convivaRequestId = e.data.convivaRequestId;
+    var timeoutMs = e.data.timeoutMs;
+    httpRequest(url, method, contentType, data, timeoutMs,
+        function (bytes) {
+            var data = { post_err: 'ok',
+                         convivaId : convivaId,
+                         convivaRequestId: convivaRequestId,
+                         bytes: bytes
+                       };
+            e.source.postMessage(data, e.origin);
+        },
+        function (status) {
+            var data = { post_err: status,
+                         convivaId : convivaId,
+                         convivaRequestId: convivaRequestId
+                       };
+            e.source.postMessage(data, e.origin);
+        }
+    );
+}
+
+var evtName = 'message';
+if (window.addEventListener) {
+    addEventListener(evtName, cwsListener, false);
+} else {
+    attachEvent('on' + evtName, cwsListener);
+}
+
+</script>
+</head>
+<body>
+
+
+</body></html>
